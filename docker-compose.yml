@@ -1,0 +1,39 @@
+services:
+  web:
+    # Auto-restart after host/daemon restarts unless explicitly stopped.
+    restart: unless-stopped
+    # Allow host access from container for local Ollama/image pipeline.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      # Fixed Python path inside image; all other vars come from .env.
+      FACIAL_PYTHON_BIN: /opt/pyenv/bin/python
+      ORT_LOG_SEVERITY_LEVEL: "3"
+      ONNXRUNTIME_LOG_SEVERITY_LEVEL: "3"
+    volumes:
+      - .:/app
+      - openclaw_node_modules:/app/node_modules
+    ports:
+      - "${pc28_prot:-3000}:3000"
+
+    command: >
+      sh -c "npm run docker"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:3000/healthz'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+
+volumes:
+  openclaw_node_modules:
